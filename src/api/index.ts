@@ -90,37 +90,6 @@ export async function deleteIPFilter(payload: IPFilterMutateRequest): Promise<vo
     })
 }
 
-export function formatPortRange(portStart: number, portEnd: number): string {
-    if (portStart > 0 && portEnd > 0) {
-        return `${portStart}-${portEnd}`
-    }
-    return '全部端口'
-}
-
-export function ruleFieldLabel(field: string, value?: string): string {
-    switch (field) {
-        case 'ip':
-            return 'IP'
-        case 'country':
-            return '国家'
-        case 'region':
-            return '地区'
-        case 'city':
-            return '城市'
-        case 'category':
-            return value === 'ALL' ? '全部流量' : value === 'LOCAL' ? '本地网络' : '远程网络'
-        default:
-            return field
-    }
-}
-
-export function ruleDisplayText(rule: IPFilterRule): string {
-    if (rule.field === 'category') {
-        return ruleFieldLabel('category', rule.value)
-    }
-    return `${ruleFieldLabel(rule.field)}: ${rule.value ?? '-'}`
-}
-
 export function toMutatePayload(
     status: 0 | 1,
     field: IPFilterMutateRequest['field'],

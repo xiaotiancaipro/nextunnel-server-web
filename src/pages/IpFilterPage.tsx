@@ -1,196 +1,235 @@
-import {useCallback, useEffect, useState} from 'react'
-import {Button, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag, Typography,} from 'antd'
-import {DeleteOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons'
-import type {ColumnsType} from 'antd/es/table'
-import {addIPFilter, deleteIPFilter, fromRuleToMutate, listIPFilters, ruleDisplayText, toMutatePayload,} from '../api'
-import type {IPFilterField, IPFilterRule} from '../types'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Button, Empty, Form, Input, message, Modal, Popconfirm, Select, Space, Table, Tag } from 'antd'
+import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
+import PageCard from '../components/PageCard'
+import PageHeader from '../components/PageHeader'
+import { addIPFilter, deleteIPFilter, fromRuleToMutate, listIPFilters, toMutatePayload } from '../api'
+import { ruleDisplayText, useI18n } from '../i18n'
+import type { IPFilterField, IPFilterRule } from '../types'
 
 interface AddFormValues {
-    status: 0 | 1
-    field: IPFilterField
-    value?: string
+  status: 0 | 1
+  field: IPFilterField
+  value?: string
 }
-
-const fieldOptions = [
-    {label: 'IP 地址', value: 'ip'},
-    {label: '国家', value: 'country'},
-    {label: '地区', value: 'region'},
-    {label: '城市', value: 'city'},
-    {label: '全部流量', value: 'all'},
-    {label: '本地网络', value: 'local'},
-    {label: '远程网络', value: 'remote'},
-]
 
 const categoryFields = new Set<IPFilterField>(['all', 'local', 'remote'])
 
 export default function IpFilterPage() {
-    const [rules, setRules] = useState<IPFilterRule[]>([])
-    const [loading, setLoading] = useState(false)
-    const [modalOpen, setModalOpen] = useState(false)
-    const [submitting, setSubmitting] = useState(false)
-    const [deletingId, setDeletingId] = useState<string | null>(null)
-    const [form] = Form.useForm<AddFormValues>()
+  const { t } = useI18n()
+  const [rules, setRules] = useState<IPFilterRule[]>([])
+  const [loading, setLoading] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [form] = Form.useForm<AddFormValues>()
 
-    const loadRules = useCallback(async () => {
-        setLoading(true)
-        try {
-            setRules(await listIPFilters())
-        } catch (err) {
-            message.error(err instanceof Error ? err.message : '加载规则失败')
-        } finally {
-            setLoading(false)
-        }
-    }, [])
+  const fieldOptions = useMemo(
+    () => [
+      { label: t('ipFilters.field.ip'), value: 'ip' as const },
+      { label: t('ipFilters.field.country'), value: 'country' as const },
+      { label: t('ipFilters.field.region'), value: 'region' as const },
+      { label: t('ipFilters.field.city'), value: 'city' as const },
+      { label: t('ipFilters.field.all'), value: 'all' as const },
+      { label: t('ipFilters.field.local'), value: 'local' as const },
+      { label: t('ipFilters.field.remote'), value: 'remote' as const },
+    ],
+    [t],
+  )
 
-    useEffect(() => {
-        void loadRules()
-    }, [loadRules])
-
-    const handleAdd = async (values: AddFormValues) => {
-        setSubmitting(true)
-        try {
-            await addIPFilter(toMutatePayload(values.status, values.field, values.value?.trim()))
-            message.success('规则已添加')
-            setModalOpen(false)
-            form.resetFields()
-            await loadRules()
-        } catch (err) {
-            message.error(err instanceof Error ? err.message : '添加失败')
-        } finally {
-            setSubmitting(false)
-        }
+  const loadRules = useCallback(async () => {
+    setLoading(true)
+    try {
+      setRules(await listIPFilters())
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : t('ipFilters.loadFailed'))
+    } finally {
+      setLoading(false)
     }
+  }, [t])
 
-    const handleDelete = async (rule: IPFilterRule) => {
-        setDeletingId(rule.id)
-        try {
-            await deleteIPFilter(fromRuleToMutate(rule))
-            message.success('规则已删除')
-            await loadRules()
-        } catch (err) {
-            message.error(err instanceof Error ? err.message : '删除失败')
-        } finally {
-            setDeletingId(null)
-        }
+  useEffect(() => {
+    void loadRules()
+  }, [loadRules])
+
+  const handleAdd = async (values: AddFormValues) => {
+    setSubmitting(true)
+    try {
+      await addIPFilter(toMutatePayload(values.status, values.field, values.value?.trim()))
+      message.success(t('ipFilters.addSuccess'))
+      setModalOpen(false)
+      form.resetFields()
+      await loadRules()
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : t('ipFilters.addFailed'))
+    } finally {
+      setSubmitting(false)
     }
+  }
 
-    const columns: ColumnsType<IPFilterRule> = [
-        {
-            title: '动作',
-            dataIndex: 'status',
-            key: 'status',
-            width: 100,
-            render: (status: 0 | 1) => (
-                <Tag color={status === 1 ? 'success' : 'error'}>{status === 1 ? '允许' : '拒绝'}</Tag>
-            ),
-        },
-        {
-            title: '匹配规则',
-            key: 'rule',
-            render: (_, record) => ruleDisplayText(record),
-        },
-        {
-            title: '创建时间',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            width: 200,
-        },
-        {
-            title: '操作',
-            key: 'actions',
-            width: 100,
-            render: (_, record) => (
-                <Popconfirm
-                    title="确认删除此规则？"
-                    onConfirm={() => void handleDelete(record)}
-                    okText="删除"
-                    cancelText="取消"
-                >
-                    <Button
-                        type="link"
-                        danger
-                        icon={<DeleteOutlined/>}
-                        loading={deletingId === record.id}
-                    >
-                        删除
-                    </Button>
-                </Popconfirm>
-            ),
-        },
-    ]
+  const handleDelete = async (rule: IPFilterRule) => {
+    setDeletingId(rule.id)
+    try {
+      await deleteIPFilter(fromRuleToMutate(rule))
+      message.success(t('ipFilters.deleteSuccess'))
+      await loadRules()
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : t('ipFilters.deleteFailed'))
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
-    return (
-        <>
-            <Space style={{marginBottom: 16, width: '100%', justifyContent: 'space-between'}}>
-                <Typography.Title level={4} style={{margin: 0}}>
-                    访问控制规则
-                </Typography.Title>
-                <Space>
-                    <Button icon={<ReloadOutlined/>} onClick={() => void loadRules()}>
-                        刷新
-                    </Button>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={() => setModalOpen(true)}>
-                        添加规则
-                    </Button>
-                </Space>
-            </Space>
+  const allowCount = rules.filter((rule) => rule.status === 1).length
+  const blockCount = rules.length - allowCount
 
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={rules}
-                locale={{emptyText: '暂无访问控制规则'}}
-                pagination={{pageSize: 10, showSizeChanger: true}}
-            />
-
-            <Modal
-                title="添加访问控制规则"
-                open={modalOpen}
-                onCancel={() => {
-                    setModalOpen(false)
-                    form.resetFields()
-                }}
-                onOk={() => form.submit()}
-                confirmLoading={submitting}
-                destroyOnHidden
+  const columns: ColumnsType<IPFilterRule> = useMemo(
+    () => [
+      {
+        title: t('ipFilters.columnAction'),
+        dataIndex: 'status',
+        key: 'status',
+        width: 110,
+        render: (status: 0 | 1) => (
+          <Tag bordered={false} color={status === 1 ? 'success' : 'error'}>
+            {status === 1 ? t('common.allow') : t('common.block')}
+          </Tag>
+        ),
+      },
+      {
+        title: t('ipFilters.columnRule'),
+        key: 'rule',
+        render: (_, record) => <span className="console-rule-text">{ruleDisplayText(t, record)}</span>,
+      },
+      {
+        title: t('common.createdAt'),
+        dataIndex: 'createdAt',
+        key: 'createdAt',
+        width: 190,
+        render: (value: string) => <span className="console-id-text">{value.replace('T', ' ').replace('Z', ' UTC')}</span>,
+      },
+      {
+        title: t('common.actions'),
+        key: 'actions',
+        width: 100,
+        render: (_, record) => (
+          <Popconfirm
+            title={t('ipFilters.deleteConfirmTitle')}
+            description={t('ipFilters.deleteConfirmDesc')}
+            onConfirm={() => void handleDelete(record)}
+            okText={t('common.delete')}
+            cancelText={t('common.cancel')}
+            okButtonProps={{ danger: true }}
+          >
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              loading={deletingId === record.id}
+              style={{ paddingInline: 0 }}
             >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    initialValues={{status: 0, field: 'ip'}}
-                    onFinish={(values) => void handleAdd(values)}
+              {t('common.delete')}
+            </Button>
+          </Popconfirm>
+        ),
+      },
+    ],
+    [t, deletingId],
+  )
+
+  return (
+    <div className="console-page">
+      <PageHeader
+        description={t('ipFilters.description')}
+        badge={
+          <Space size={8}>
+            <span className="console-count-badge">{t('ipFilters.allowCount', { count: allowCount })}</span>
+            <span className="console-count-badge console-count-badge--danger">
+              {t('ipFilters.blockCount', { count: blockCount })}
+            </span>
+          </Space>
+        }
+        extra={
+          <Space>
+            <Button icon={<ReloadOutlined />} onClick={() => void loadRules()}>
+              {t('common.refresh')}
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+              {t('ipFilters.addRule')}
+            </Button>
+          </Space>
+        }
+      />
+
+      <PageCard>
+        <Table
+          rowKey="id"
+          size="small"
+          loading={loading}
+          columns={columns}
+          dataSource={rules}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (total) => t('common.total', { total }) }}
+          locale={{
+            emptyText: (
+              <div className="console-empty-hint">
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('ipFilters.empty')} />
+              </div>
+            ),
+          }}
+        />
+      </PageCard>
+
+      <Modal
+        className="console-modal"
+        title={t('ipFilters.modalTitle')}
+        open={modalOpen}
+        onCancel={() => {
+          setModalOpen(false)
+          form.resetFields()
+        }}
+        onOk={() => form.submit()}
+        confirmLoading={submitting}
+        destroyOnHidden
+        okText={t('common.add')}
+        cancelText={t('common.cancel')}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{ status: 0, field: 'ip' }}
+          onFinish={(values) => void handleAdd(values)}
+        >
+          <Form.Item name="status" label={t('ipFilters.actionLabel')} rules={[{ required: true }]}>
+            <Select
+              options={[
+                { label: t('ipFilters.allowOption'), value: 1 },
+                { label: t('ipFilters.blockOption'), value: 0 },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="field" label={t('ipFilters.fieldLabel')} rules={[{ required: true }]}>
+            <Select options={fieldOptions} />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, next) => prev.field !== next.field}>
+            {({ getFieldValue }) => {
+              const field = getFieldValue('field') as IPFilterField
+              if (categoryFields.has(field)) {
+                return null
+              }
+              return (
+                <Form.Item
+                  name="value"
+                  label={t('ipFilters.valueLabel')}
+                  rules={[{ required: true, message: t('ipFilters.valueRequired') }]}
                 >
-                    <Form.Item name="status" label="动作" rules={[{required: true}]}>
-                        <Select
-                            options={[
-                                {label: '允许 (allow)', value: 1},
-                                {label: '拒绝 (block)', value: 0},
-                            ]}
-                        />
-                    </Form.Item>
-                    <Form.Item name="field" label="匹配维度" rules={[{required: true}]}>
-                        <Select options={fieldOptions}/>
-                    </Form.Item>
-                    <Form.Item noStyle shouldUpdate={(prev, next) => prev.field !== next.field}>
-                        {({getFieldValue}) => {
-                            const field = getFieldValue('field') as IPFilterField
-                            if (categoryFields.has(field)) {
-                                return null
-                            }
-                            return (
-                                <Form.Item
-                                    name="value"
-                                    label="匹配值"
-                                    rules={[{required: true, message: '请输入匹配值'}]}
-                                >
-                                    <Input placeholder="例如：203.0.113.10 或 Shenzhen"/>
-                                </Form.Item>
-                            )
-                        }}
-                    </Form.Item>
-                </Form>
-            </Modal>
-        </>
-    )
+                  <Input placeholder={t('ipFilters.valuePlaceholder')} />
+                </Form.Item>
+              )
+            }}
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  )
 }

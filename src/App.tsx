@@ -1,102 +1,130 @@
-import {useEffect, useState} from 'react'
-import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom'
-import {CloudServerOutlined, SafetyOutlined} from '@ant-design/icons'
-import {Layout, Menu, Spin, theme, Typography} from 'antd'
-import {fetchVersion} from './api'
+import { useEffect, useMemo, useState } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { CloudServerOutlined, SafetyOutlined } from '@ant-design/icons'
+import { Flex, Layout, Menu, Spin, theme, Typography } from 'antd'
+import { fetchVersion } from './api'
+import LanguageSwitcher from './components/LanguageSwitcher'
+import { useI18n } from './i18n'
 import ClientsPage from './pages/ClientsPage'
 import IpFilterPage from './pages/IpFilterPage'
+import './styles/layout.css'
 
-const {Header, Sider, Content, Footer} = Layout
+const SIDER_WIDTH = 220
 
 function AppLayout() {
-    const location = useLocation()
-    const navigate = useNavigate()
-    const {token} = theme.useToken()
-    const [version, setVersion] = useState<string>()
-    const [versionLoading, setVersionLoading] = useState(true)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { t } = useI18n()
+  const [version, setVersion] = useState<string>()
+  const [versionLoading, setVersionLoading] = useState(true)
+  const { token: themeToken } = theme.useToken()
 
-    useEffect(() => {
-        void fetchVersion()
-            .then(setVersion)
-            .catch(() => setVersion(undefined))
-            .finally(() => setVersionLoading(false))
-    }, [])
+  const { Header, Sider, Content } = Layout
 
-    const selectedKey = location.pathname.startsWith('/ip-filters') ? 'ip-filters' : 'clients'
+  useEffect(() => {
+    void fetchVersion()
+      .then(setVersion)
+      .catch(() => setVersion(undefined))
+      .finally(() => setVersionLoading(false))
+  }, [])
 
-    return (
-        <Layout style={{minHeight: '100vh'}}>
-            <Sider breakpoint="lg" collapsedWidth={64} theme="dark">
-                <div
-                    style={{
-                        height: 64,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: 16,
-                        padding: '0 12px',
-                        textAlign: 'center',
-                    }}
-                >
-                    nextunnel-server
-                </div>
-                <Menu
-                    theme="dark"
-                    mode="inline"
-                    selectedKeys={[selectedKey]}
-                    items={[
-                        {
-                            key: 'clients',
-                            icon: <CloudServerOutlined/>,
-                            label: '客户端管理',
-                            onClick: () => navigate('/clients'),
-                        },
-                        {
-                            key: 'ip-filters',
-                            icon: <SafetyOutlined/>,
-                            label: '访问控制',
-                            onClick: () => navigate('/ip-filters'),
-                        },
-                    ]}
-                />
-            </Sider>
-            <Layout>
-                <Content style={{margin: 24}}>
-                    <div
-                        style={{
-                            background: token.colorBgContainer,
-                            borderRadius: token.borderRadiusLG,
-                            padding: 24,
-                            minHeight: 360,
-                        }}
-                    >
-                        <Routes>
-                            <Route path="/" element={<Navigate to="/clients" replace/>}/>
-                            <Route path="/clients" element={<ClientsPage/>}/>
-                            <Route path="/ip-filters" element={<IpFilterPage/>}/>
-                        </Routes>
-                    </div>
-                </Content>
-                <Footer style={{textAlign: 'center'}}>
-                    {versionLoading ? (
-                        <Spin size="small"/>
-                    ) : (
-                        <Typography.Text type="secondary">
-                            nextunnel-server {version ?? 'API 未连接'}
-                        </Typography.Text>
-                    )}
-                </Footer>
-            </Layout>
-        </Layout>
-    )
+  const selectedKey = location.pathname.startsWith('/ip-filters') ? 'ip-filters' : 'clients'
+  const pageTitle = selectedKey === 'ip-filters' ? t('ipFilters.title') : t('clients.title')
+  const apiOnline = Boolean(version)
+
+  const menuItems = useMemo(
+    () => [
+      {
+        key: 'clients',
+        icon: <CloudServerOutlined />,
+        label: t('nav.clients'),
+      },
+      {
+        key: 'ip-filters',
+        icon: <SafetyOutlined />,
+        label: t('nav.ipFilters'),
+      },
+    ],
+    [t],
+  )
+
+  return (
+    <Layout className="console-shell">
+      <Header className="console-top-header">
+        <Flex align="center" gap={10} className="console-top-brand">
+          <img src="/favicon.svg" alt="" className="console-sidebar-brand-icon" />
+          <span className="console-sidebar-brand-text">nextunnel Server</span>
+        </Flex>
+        <Flex align="center" gap={12}>
+          <LanguageSwitcher />
+          <div className="console-status">
+            <span className={`console-status__dot${apiOnline ? ' console-status__dot--online' : ''}`} />
+            <span className="console-status__text">
+              {versionLoading
+                ? t('status.connecting')
+                : apiOnline
+                  ? t('status.apiOnline', { version: version ?? '' })
+                  : t('status.apiOffline')}
+            </span>
+          </div>
+        </Flex>
+      </Header>
+
+      <Layout className="console-body">
+        <Sider
+          width={SIDER_WIDTH}
+          breakpoint="lg"
+          collapsedWidth={64}
+          theme="light"
+          className="console-sider"
+          style={{ borderRight: `1px solid ${themeToken.colorBorderSecondary}` }}
+        >
+          <div className="console-sider-inner">
+            <Menu
+              mode="inline"
+              inlineIndent={12}
+              selectedKeys={[selectedKey]}
+              items={menuItems}
+              onClick={({ key }) => navigate(key === 'ip-filters' ? '/ip-filters' : '/clients')}
+              className="console-sider-menu"
+            />
+            <div className="console-sider-footer">
+              <Typography.Text type="secondary" className="console-sider-footer-text">
+                {versionLoading ? (
+                  <Spin size="small" />
+                ) : (
+                  t('status.footer', { version: version ?? t('status.footerWaiting') })
+                )}
+              </Typography.Text>
+            </div>
+          </div>
+        </Sider>
+
+        <Content className="console-content">
+          <div className="page-enter console-page-wrapper">
+            <header className="console-page-header">
+              <Typography.Title level={4} className="console-page-title">
+                {pageTitle}
+              </Typography.Title>
+            </header>
+            <div className="console-page-body">
+              <Routes>
+                <Route path="/" element={<Navigate to="/clients" replace />} />
+                <Route path="/clients" element={<ClientsPage />} />
+                <Route path="/ip-filters" element={<IpFilterPage />} />
+              </Routes>
+            </div>
+          </div>
+        </Content>
+      </Layout>
+    </Layout>
+  )
 }
 
 export default function App() {
-    return (
-        <BrowserRouter>
-            <AppLayout/>
-        </BrowserRouter>
-    )
+  return (
+    <BrowserRouter>
+      <AppLayout />
+    </BrowserRouter>
+  )
 }
