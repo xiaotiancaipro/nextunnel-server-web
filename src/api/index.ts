@@ -71,6 +71,23 @@ export async function downloadClientCerts(name: string): Promise<Blob> {
     return response.blob()
 }
 
+export async function downloadCACert(): Promise<Blob> {
+    const response = await fetch(`${API_BASE}/ca`)
+    if (!response.ok) {
+        let message = response.statusText
+        try {
+            const payload = (await response.json()) as ApiError
+            if (payload.error) {
+                message = payload.error
+            }
+        } catch {
+            // ignore
+        }
+        throw new Error(message)
+    }
+    return response.blob()
+}
+
 export async function listIPFilters(): Promise<IPFilterRule[]> {
     const data = await request<{ items: IPFilterRule[] }>('/ip-filters')
     return data.items

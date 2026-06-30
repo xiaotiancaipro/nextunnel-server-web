@@ -4,7 +4,7 @@ import {DownloadOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons'
 import type {ColumnsType} from 'antd/es/table'
 import PageCard from '../components/PageCard'
 import PageHeader from '../components/PageHeader'
-import {createClient, downloadClientCerts, listClients} from '../api'
+import {createClient, downloadCACert, downloadClientCerts, listClients} from '../api'
 import {formatPortRange, useI18n} from '../i18n'
 import type {Client} from '../types'
 
@@ -26,6 +26,7 @@ export default function ClientsPage() {
     const [modalOpen, setModalOpen] = useState(false)
     const [submitting, setSubmitting] = useState(false)
     const [downloading, setDownloading] = useState<string | null>(null)
+    const [downloadingCA, setDownloadingCA] = useState(false)
     const [form] = Form.useForm<CreateFormValues>()
 
     const loadClients = useCallback(async () => {
@@ -77,6 +78,24 @@ export default function ClientsPage() {
             message.error(err instanceof Error ? err.message : t('clients.certFailed'))
         } finally {
             setDownloading(null)
+        }
+    }
+
+    const handleDownloadCA = async () => {
+        setDownloadingCA(true)
+        try {
+            const blob = await downloadCACert()
+            const url = URL.createObjectURL(blob)
+            const anchor = document.createElement('a')
+            anchor.href = url
+            anchor.download = 'ca.crt'
+            anchor.click()
+            URL.revokeObjectURL(url)
+            message.success(t('clients.downloadCASuccess'))
+        } catch (err) {
+            message.error(err instanceof Error ? err.message : t('clients.downloadCAFailed'))
+        } finally {
+            setDownloadingCA(false)
         }
     }
 
@@ -157,6 +176,13 @@ export default function ClientsPage() {
                     <Space>
                         <Button icon={<ReloadOutlined/>} onClick={() => void loadClients()}>
                             {t('common.refresh')}
+                        </Button>
+                        <Button
+                            icon={<DownloadOutlined/>}
+                            loading={downloadingCA}
+                            onClick={() => void handleDownloadCA()}
+                        >
+                            {t('clients.downloadCA')}
                         </Button>
                         <Button type="primary" icon={<PlusOutlined/>} onClick={() => setModalOpen(true)}>
                             {t('clients.createClient')}
