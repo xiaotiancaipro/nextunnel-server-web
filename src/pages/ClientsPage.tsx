@@ -38,6 +38,7 @@ import {
 } from '../api'
 import {formatPortRange, useI18n} from '../i18n'
 import type {Client, ClientCert} from '../types'
+import {formatTimestamp} from '../utils/formatTime'
 
 interface CreateFormValues {
     name: string
@@ -53,10 +54,6 @@ interface AddCertFormValues {
 
 function clientInitial(name: string) {
     return name.trim().charAt(0).toUpperCase() || '?'
-}
-
-function formatTimestamp(value: string) {
-    return value.replace('T', ' ').replace(/\.\d+Z$/, '').replace('Z', '')
 }
 
 export default function ClientsPage() {

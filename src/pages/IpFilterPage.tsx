@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader'
 import {addIPFilter, deleteIPFilter, fromRuleToMutate, listIPFilters, toMutatePayload} from '../api'
 import {ruleDisplayText, useI18n} from '../i18n'
 import type {IPFilterField, IPFilterRule} from '../types'
+import {formatTimestamp} from '../utils/formatTime'
 
 interface AddFormValues {
     status: 0 | 1
@@ -109,8 +110,7 @@ export default function IpFilterPage() {
                 key: 'createdAt',
                 width: 176,
                 render: (value: string) => (
-                    <span
-                        className="console-id-text">{value.replace('T', ' ').replace(/\.\d+Z$/, '').replace('Z', '')}</span>
+                    <span className="console-id-text">{formatTimestamp(value)}</span>
                 ),
             },
             {
